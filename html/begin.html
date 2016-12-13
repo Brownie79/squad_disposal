@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Squad Disposal</title>
+    <!--Import materialize.css-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/css/materialize.min.css">
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+    <!--Import jQuery before materialize.js-->
+    <script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/js/materialize.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.5.1/socket.io.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        #map {
+            height: 100%;
+        }
+        /* Optional: Makes the sample page fill the window. */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="background" class="container">
+        <div id="joingame" class="row card blue-grey center-align">
+            <!-- Join Game Card (black) -->
+            <h1 class="white-text"> JOIN GAME: </h1>
+            <form>
+                <p class="white-text center-align"> 
+                Room Name: <input type="text" name="join_rname">
+                Player Name: <input type="text" name="join_pname">
+                </p>
+                <input type="submit" value="Join Game">
+            </form>
+        </div>
+        <div id="startgame" class="row card blue-grey center-align">
+            <h1 class="white-text"> START GAME </h1>
+            <!-- Start Game Card (white) -->
+            <form id="startgameform" action="startgame">
+                <p class="white-text center-align">
+                Player Name: <input type="text" name="pname" id='playername'>
+                Room Name: <input type="text" name="rname" id='roomname'>
+                Game LAT: <input type="text" name="lat" id="usrlat">
+                Game LNG: <input type="text" name="lng" id="usrlng">
+                </p>
+
+                <div id="map" style="height:500px; width:500px; margin-left:auto; margin-right:auto;">    </div>
+                <!-- Select Area of Map -->
+                <a class="waves-effect waves-light btn-large" onclick="startgame_socket()">Start Game!</a>
+                <!-- <input type="submit" value="Start Game" onclick="startgame_socket()"> -->
+            </form>
+        </div>
+    </div>
+
+    <div id="gameinfo" style="display:none" class="row card blue-grey" style="margin-left:5px;margin-right:5px">
+        <h2> Game Info </h2>
+        <p class="ptext" id="gameRoomName">Game Room</p>
+        <p class="ptext" id="gamePlayerName">Your Name</p>
+        <p class="ptext" id="gameCurrentObjective">Find the Bomb!</p>
+    </div>
+
+    <div id="gamemap" style="display:none">
+    </div>
+    
+    <div id="lobbychat" style="display:none">
+    </div>
+
+    <!-- scripts to load after page has loaded -->
+    <!-- variable declarations -->
+    <script type="text/javascript">
+        let zoneCoords;
+        let gridSize = 0.0005
+        let grid;
+        let socket = io();
+    </script>
+
+    <!-- start game script -->
+    <script type="text/javascript">
+        let map;
+        let currLocProm = getCurrentLoc();
+        let userLoc; 
+        let userMrk;
+
+        function startgame_socket(){
+            console.log('startgame');
+            socket.emit('startgame', {
+                pname: document.getElementById('playername').value, 
+                rname: document.getElementById('roomname').value,
+                lat: document.getElementById('usrlat').value,
+                lng: document.getElementById('usrlng').value
+            });
+        }
+        
+        function joingame_socket(){
+            socket.emit('joingame',{
+                pname: document.getElementById('join_pname').value,
+                rname: document.getElementById('join_rname').value
+            });           
+        }
+
+        function initMap() {
+            currLocProm.then(function(data){
+                userLoc = {lng: data.coords.longitude, lat: data.coords.latitude };
+                document.getElementById("usrlat").value=userLoc.lat;
+                document.getElementById("usrlng").value=userLoc.lng;
+                zoneCoords = [
+                    {lng: userLoc.lng - gridSize, lat: userLoc.lat + gridSize }, // 0,0
+                    {lng: userLoc.lng + gridSize, lat: userLoc.lat + gridSize }, // 0,1
+                    {lng: userLoc.lng + gridSize, lat: userLoc.lat - gridSize }, // -1, 1
+                    {lng: userLoc.lng - gridSize, lat: userLoc.lat - gridSize }  // -1, -1
+                ]
+                map = new google.maps.Map(document.getElementById('map'), {
+                    center: userLoc,
+                    zoom: 18
+                });
+                userMrk = new google.maps.Marker({position: userLoc, map: map})
+                
+                grid = new google.maps.Polygon({
+                    paths: zoneCoords,
+                    strokeColor: '#FF0000',
+                    strokeOpacity: 0.8,
+                    strokeWeight: 3,
+                    fillColor: '#FF0000',
+                    fillOpacity: 0.35
+                });
+
+                grid.setMap(map);
+            });
+        }
+
+        function getCurrentLoc(){
+            return new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject);
+            });
+        }
+    </script>
+
+    <!-- game script -->
+    <script type="text/javascript">
+        socket.on('gameSetup', function(){
+            changeDivs();
+            //console.log(info);
+        });
+
+        function changeDivs(){
+            document.getElementById("startgame").style.display = "none";
+            document.getElementById("joingame").style.display = "none";
+            
+            document.getElementById('gameinfo').style.display = "block";
+            document.getElementById('gamemap').style.display = "block";
+        }
+
+    </script>    
+    <script async defer
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBBSyorS_heHX_gfcOnMlILRTvQbpxZwIo&callback=initMap">
+    </script>
+</body>
+</html>
